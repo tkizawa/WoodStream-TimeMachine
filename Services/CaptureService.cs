@@ -157,7 +157,7 @@ public class CaptureService : IDisposable
 
     private static ImageCodecInfo? GetEncoder(ImageFormat format)
     {
-        ImageCodecInfo[] codecs = ImageCodecInfo.GetImageDecoders();
+        ImageCodecInfo[] codecs = ImageCodecInfo.GetImageEncoders();
         foreach (ImageCodecInfo codec in codecs)
         {
             if (codec.FormatID == format.Guid)

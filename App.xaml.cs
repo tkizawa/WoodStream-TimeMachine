@@ -1,4 +1,6 @@
 using System.Windows;
+using System.Windows.Interop;
+using System.Windows.Media;
 using WoodStreamTimeMachine.Services;
 using WoodStreamTimeMachine.Views;
 
@@ -18,6 +20,10 @@ public partial class App : System.Windows.Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // ARM64環境（Snapdragon X / Adreno GPU等）におけるDirectXハードウェア描画の
+        // テクスチャ色チャンネル（赤・青）スワップ不具合を回避するため、ソフトウェアレンダリングを使用
+        RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
 
         // 1. 設定マネージャの初期化
         _settingsManager = new SettingsManager();
