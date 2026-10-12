@@ -14,8 +14,20 @@ public class CaptureService : IDisposable
     private readonly SettingsManager _settingsManager;
     private CancellationTokenSource? _cts;
     private Task? _captureTask;
+    private PeriodicTimer? _periodicTimer;
     private readonly ImageCodecInfo? _jpegEncoder;
     private readonly EncoderParameters _encoderParams;
+    private volatile bool _isViewerVisible;
+
+    /// <summary>
+    /// ビュアーが表示中かどうかを取得・設定します。
+    /// ビュアーが表示されている間はスクリーンショットの撮影・保存を一時停止（スキップ）します。
+    /// </summary>
+    public bool IsViewerVisible
+    {
+        get => _isViewerVisible;
+        set => _isViewerVisible = value;
+    }
 
     /// <summary>
     /// キャプチャが保存されたときに発生するイベント
@@ -47,6 +59,18 @@ public class CaptureService : IDisposable
     }
 
     /// <summary>
+    /// キャプチャ間隔を最新の設定値に即時更新します
+    /// </summary>
+    public void UpdateInterval()
+    {
+        if (_periodicTimer != null)
+        {
+            int currentSetting = Math.Max(1, _settingsManager.Current.CaptureIntervalSeconds);
+            _periodicTimer.Period = TimeSpan.FromSeconds(currentSetting);
+        }
+    }
+
+    /// <summary>
     /// キャプチャループを停止します
     /// </summary>
     public async Task StopAsync()
@@ -71,28 +95,50 @@ public class CaptureService : IDisposable
     }
 
     /// <summary>
-    /// 指定された間隔（デフォルト5秒）でスクリーンショットを撮り続けるループ
+    /// 指定された間隔（デフォルト3秒）でスクリーンショットを撮り続けるループ
     /// </summary>
     private async Task CaptureLoopAsync(CancellationToken cancellationToken)
     {
         int intervalSeconds = Math.Max(1, _settingsManager.Current.CaptureIntervalSeconds);
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(intervalSeconds));
+        _periodicTimer = new PeriodicTimer(TimeSpan.FromSeconds(intervalSeconds));
 
-        while (!cancellationToken.IsCancellationRequested)
+        try
         {
-            try
+            while (!cancellationToken.IsCancellationRequested)
             {
-                await timer.WaitForNextTickAsync(cancellationToken);
-                await CaptureAndSaveAsync();
+                try
+                {
+                    await _periodicTimer.WaitForNextTickAsync(cancellationToken);
+
+                    // 設定間隔が変更された場合はタイマー周期を動的に更新
+                    int currentInterval = Math.Max(1, _settingsManager.Current.CaptureIntervalSeconds);
+                    if ((int)_periodicTimer.Period.TotalSeconds != currentInterval)
+                    {
+                        _periodicTimer.Period = TimeSpan.FromSeconds(currentInterval);
+                    }
+
+                    // ビュアーが表示されている間はスクリーンショットの記録をスキップ
+                    if (IsViewerVisible)
+                    {
+                        continue;
+                    }
+
+                    await CaptureAndSaveAsync();
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"キャプチャ処理エラー: {ex.Message}");
+                }
             }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"キャプチャ処理エラー: {ex.Message}");
-            }
+        }
+        finally
+        {
+            _periodicTimer.Dispose();
+            _periodicTimer = null;
         }
     }
 
@@ -101,6 +147,12 @@ public class CaptureService : IDisposable
     /// </summary>
     public async Task CaptureAndSaveAsync()
     {
+        // ビュアーが表示されている間はスクリーンショットを記録しない
+        if (IsViewerVisible)
+        {
+            return;
+        }
+
         string folder = _settingsManager.Current.StorageFolderPath;
         if (string.IsNullOrWhiteSpace(folder))
         {
@@ -168,10 +220,24 @@ public class CaptureService : IDisposable
         return null;
     }
 
+    private bool _isDisposed;
+
     public void Dispose()
     {
-        _encoderParams.Dispose();
+        if (_isDisposed) return;
+        _isDisposed = true;
+
+        try
+        {
+            _encoderParams.Dispose();
+        }
+        catch
+        {
+            // 二重解放等の例外を安全に吸収
+        }
+
         _cts?.Cancel();
         _cts?.Dispose();
+        _cts = null;
     }
 }

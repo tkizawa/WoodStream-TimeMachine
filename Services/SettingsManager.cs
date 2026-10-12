@@ -60,6 +60,14 @@ public class SettingsManager
                     {
                         loaded.StorageFolderPath = GetDefaultStoragePath();
                     }
+                    if (loaded.CaptureIntervalSeconds <= 0)
+                    {
+                        loaded.CaptureIntervalSeconds = 3;
+                    }
+                    if (loaded.MaxStorageSizeMB <= 0)
+                    {
+                        loaded.MaxStorageSizeMB = 150;
+                    }
                     Current = loaded;
                     return Current;
                 }

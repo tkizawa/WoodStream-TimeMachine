@@ -21,18 +21,27 @@ public static class Strings
     public static string TrayRunningTooltip => IsJapanese ? "WoodStream TimeMachine (動作中)" : "WoodStream TimeMachine (Running)";
 
     // セットアップ / 設定画面
-    public static string SetupTitle => IsJapanese ? "初回セットアップ - 保存先フォルダの選択" : "Initial Setup - Select Storage Folder";
-    public static string SettingsTitle => IsJapanese ? "設定 - 保存先フォルダの変更" : "Settings - Change Storage Folder";
+    public static string SetupTitle => IsJapanese ? "初回セットアップ - 基本設定" : "Initial Setup - Preferences";
+    public static string SettingsTitle => IsJapanese ? "設定" : "Settings";
     public static string SetupDescription => IsJapanese 
-        ? "画面キャプチャ画像を記録・保存するフォルダを選択してください。\n指定したフォルダに5秒ごとのスクリーンショットが保存されます。" 
-        : "Please select the folder to store screen capture images.\nScreenshots will be saved every 5 seconds to this location.";
+        ? "画面キャプチャ画像の保存先、記録間隔、最大保存容量を設定してください。\nタスクトレイに常駐し、指定した間隔で自動的にスクリーンショットを記録します。" 
+        : "Configure the storage folder, capture interval, and maximum storage limit.\nRuns in the system tray and captures screenshots automatically.";
     public static string StorageFolderLabel => IsJapanese ? "画像保存先フォルダ:" : "Storage Folder:";
     public static string BrowseButton => IsJapanese ? "参照..." : "Browse...";
+    public static string CaptureIntervalLabel => IsJapanese ? "記録間隔 (秒):" : "Capture Interval (sec):";
+    public static string SecondsUnit => IsJapanese ? "秒" : "sec";
+    public static string StorageLimitLabel => IsJapanese ? "保存容量上限 (MB):" : "Storage Limit (MB):";
+    public static string StorageLimitDescription => IsJapanese 
+        ? "※1時間ごとに容量を判定し、上限超過時は古い画像から自動削除します。" 
+        : "* Checked hourly; oldest captures are deleted when exceeded.";
+    public static string StartWithWindowsLabel => IsJapanese ? "Windows 起動時に自動起動する" : "Start automatically with Windows";
     public static string SaveAndStartButton => IsJapanese ? "保存して開始" : "Save & Start";
     public static string SaveButton => IsJapanese ? "保存" : "Save";
     public static string CancelButton => IsJapanese ? "キャンセル" : "Cancel";
     public static string FolderNotSelectedError => IsJapanese ? "有効なフォルダパスを指定してください。" : "Please select a valid folder path.";
     public static string FolderCreateFailedError => IsJapanese ? "指定されたフォルダの作成に失敗しました。" : "Failed to create the specified folder.";
+    public static string InvalidIntervalError => IsJapanese ? "記録間隔には1以上の整数値を指定してください。" : "Please enter an integer of 1 or greater for the capture interval.";
+    public static string InvalidStorageLimitError => IsJapanese ? "保存容量上限には1以上の整数値を指定してください。" : "Please enter an integer of 1 or greater for the storage limit.";
 
     // ビューアー画面
     public static string NoCapturesFound => IsJapanese ? "キャプチャ画像が見つかりません。撮影開始をお待ちください。" : "No captures found. Waiting for new screenshots...";
@@ -43,4 +52,5 @@ public static class Strings
     public static string RefreshButtonTooltip => IsJapanese ? "最新の画像を再読込 (F5)" : "Reload Images (F5)";
     public static string RunDeduplicationButton => IsJapanese ? "今すぐ最適化 (重複間引き)" : "Optimize Now (Deduplicate)";
     public static string OptimizationDoneMessage => IsJapanese ? "{0} 枚の重複・微小差分画像を間引きました。" : "Cleaned up {0} duplicate / nearly identical captures.";
+    public static string CapturePausedBadge => IsJapanese ? "ビュアー表示中（キャプチャ停止中）" : "Recording paused while viewer is open";
 }

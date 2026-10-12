@@ -17,17 +17,31 @@ public partial class MainWindow : Window
 {
     private readonly SettingsManager _settingsManager;
     private readonly DeduplicationService _deduplicationService;
+    private readonly CaptureService? _captureService;
     private readonly List<CaptureItem> _items = new();
     private readonly DispatcherTimer _playbackTimer;
     private bool _isExplicitExit = false;
 
     private record CaptureItem(string FilePath, DateTime Timestamp);
 
-    public MainWindow(SettingsManager settingsManager, DeduplicationService deduplicationService)
+    public MainWindow(SettingsManager settingsManager, DeduplicationService deduplicationService, CaptureService? captureService = null)
     {
         InitializeComponent();
         _settingsManager = settingsManager;
         _deduplicationService = deduplicationService;
+        _captureService = captureService;
+
+        // ビュアーの表示・非表示・最小化状態の変化を監視し、表示中はキャプチャを一時停止
+        Loaded += (s, e) => UpdateViewerVisibility();
+        IsVisibleChanged += (s, e) => UpdateViewerVisibility();
+        StateChanged += (s, e) => UpdateViewerVisibility();
+        Closed += (s, e) =>
+        {
+            if (_captureService != null)
+            {
+                _captureService.IsViewerVisible = false;
+            }
+        };
 
         // タイムライン再生用タイマー（約10fps相当の滑らかなパラパラ漫画再生）
         _playbackTimer = new DispatcherTimer
@@ -42,6 +56,19 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
+    /// ビュアーの表示状態（表示中かつ最小化されていない状態）を判定し、
+    /// キャプチャサービスへ一時停止フラグを反映します。
+    /// </summary>
+    private void UpdateViewerVisibility()
+    {
+        if (_captureService == null) return;
+
+        // ウィンドウが表示されており、かつ最小化されていない場合は「表示中」とみなす
+        bool isVisibleOnScreen = IsVisible && WindowState != WindowState.Minimized;
+        _captureService.IsViewerVisible = isVisibleOnScreen;
+    }
+
+    /// <summary>
     /// システム表示言語に応じたテキストを適用
     /// </summary>
     private void ApplyLocalization()
@@ -51,6 +78,7 @@ public partial class MainWindow : Window
         RefreshButtonText.Text = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "ja" ? "更新" : "Refresh";
         OptimizeButtonText.Text = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "ja" ? "重複間引き" : "Clean Up";
         EmptyStateTextBlock.Text = Strings.NoCapturesFound;
+        CapturePausedText.Text = Strings.CapturePausedBadge;
         PlayPauseButton.ToolTip = Strings.PlayButtonTooltip;
         PrevFrameButton.ToolTip = Strings.PrevButtonTooltip;
         NextFrameButton.ToolTip = Strings.NextButtonTooltip;
@@ -370,6 +398,7 @@ public partial class MainWindow : Window
             _playbackTimer.Stop();
             PlayPauseIconText.Text = "▶";
             Hide();
+            UpdateViewerVisibility();
         }
     }
 }

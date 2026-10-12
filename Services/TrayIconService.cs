@@ -30,16 +30,33 @@ public class TrayIconService : IDisposable
             Visible = true
         };
 
-        // アイコンの設定
-        string iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "app.ico");
-        if (File.Exists(iconPath))
+        // アイコンの設定（埋め込みリソース優先、ファイルフォールバック）
+        Icon? appIcon = null;
+        try
         {
-            _notifyIcon.Icon = new Icon(iconPath);
+            var iconUri = new Uri("pack://application:,,,/Assets/app.ico");
+            var streamInfo = System.Windows.Application.GetResourceStream(iconUri);
+            if (streamInfo != null)
+            {
+                using var stream = streamInfo.Stream;
+                appIcon = new Icon(stream);
+            }
         }
-        else
+        catch
         {
-            _notifyIcon.Icon = SystemIcons.Application;
+            // リソース読み込み失敗時はフォールバック
         }
+
+        if (appIcon == null)
+        {
+            string iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "app.ico");
+            if (File.Exists(iconPath))
+            {
+                try { appIcon = new Icon(iconPath); } catch { }
+            }
+        }
+
+        _notifyIcon.Icon = appIcon ?? SystemIcons.Application;
 
         // コンテキストメニューの作成
         var contextMenu = new ContextMenuStrip();

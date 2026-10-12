@@ -10,7 +10,7 @@
         Background="#0F172A"
         Foreground="#F8FAFC"
         FontFamily="Segoe UI, Yu Gothic UI, Meiryo"
-        Icon="/Assets/app.ico"
+        Icon="pack://application:,,,/Assets/app.ico"
         KeyDown="Window_KeyDown"
         Closing="Window_Closing">
 
@@ -135,6 +135,28 @@
                                FontWeight="Bold"
                                Foreground="#F8FAFC"/>
                 </StackPanel>
+
+                <!-- ビュアー表示中のキャプチャ一時停止インジケーター -->
+                <Border x:Name="CapturePausedBadge"
+                        Grid.Column="1"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Margin="18,0,0,0"
+                        Background="#26F59E0B"
+                        BorderBrush="#80F59E0B"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Padding="8,3">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="⏸" Margin="0,0,5,0" Foreground="#FBBF24" FontSize="11" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="CapturePausedText"
+                                   Text="ビュアー表示中（キャプチャ停止中）"
+                                   FontSize="11"
+                                   FontWeight="Medium"
+                                   Foreground="#FDE68A"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
 
                 <!-- ツールバーボタン -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">

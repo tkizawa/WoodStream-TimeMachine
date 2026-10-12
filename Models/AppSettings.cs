@@ -11,9 +11,19 @@ public class AppSettings
     public string StorageFolderPath { get; set; } = string.Empty;
 
     /// <summary>
-    /// キャプチャ間隔（秒） デフォルト5秒
+    /// キャプチャ間隔（秒） デフォルト3秒
     /// </summary>
-    public int CaptureIntervalSeconds { get; set; } = 5;
+    public int CaptureIntervalSeconds { get; set; } = 3;
+
+    /// <summary>
+    /// 最大保存容量制限（MB） デフォルト150MB（1時間ごとに判定し、超過時は古い画像から削除）
+    /// </summary>
+    public int MaxStorageSizeMB { get; set; } = 150;
+
+    /// <summary>
+    /// Windows起動時に自動起動するかどうか
+    /// </summary>
+    public bool StartWithWindows { get; set; } = false;
 
     /// <summary>
     /// 重複画像の最適化間隔（分） デフォルト60分（1時間）
