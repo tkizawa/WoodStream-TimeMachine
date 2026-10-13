@@ -18,18 +18,26 @@ public partial class MainWindow : Window
     private readonly SettingsManager _settingsManager;
     private readonly DeduplicationService _deduplicationService;
     private readonly CaptureService? _captureService;
+    private readonly OcrDatabaseService? _ocrDatabaseService;
     private readonly List<CaptureItem> _items = new();
+    private readonly List<SearchResultDisplayItem> _searchResults = new();
     private readonly DispatcherTimer _playbackTimer;
+    private int _currentSearchResultIndex = -1;
     private bool _isExplicitExit = false;
 
     private record CaptureItem(string FilePath, DateTime Timestamp);
 
-    public MainWindow(SettingsManager settingsManager, DeduplicationService deduplicationService, CaptureService? captureService = null)
+    public MainWindow(
+        SettingsManager settingsManager,
+        DeduplicationService deduplicationService,
+        CaptureService? captureService = null,
+        OcrDatabaseService? ocrDatabaseService = null)
     {
         InitializeComponent();
         _settingsManager = settingsManager;
         _deduplicationService = deduplicationService;
         _captureService = captureService;
+        _ocrDatabaseService = ocrDatabaseService;
 
         // ビュアーの表示・非表示・最小化状態の変化を監視し、表示中はキャプチャを一時停止
         Loaded += (s, e) => UpdateViewerVisibility();
@@ -50,7 +58,7 @@ public partial class MainWindow : Window
         };
         _playbackTimer.Tick += PlaybackTimer_Tick;
 
-        ApplyLocalization();
+        ApplyLocalizationLabels();
         RestoreWindowPlacement();
         LoadCaptures();
     }
@@ -71,7 +79,7 @@ public partial class MainWindow : Window
     /// <summary>
     /// システム表示言語に応じたテキストを適用
     /// </summary>
-    private void ApplyLocalization()
+    private void ApplyLocalizationLabels()
     {
         Title = Strings.ViewerTitle;
         HeaderTitleTextBlock.Text = Strings.AppTitle;
@@ -84,6 +92,15 @@ public partial class MainWindow : Window
         NextFrameButton.ToolTip = Strings.NextButtonTooltip;
         RefreshButton.ToolTip = Strings.RefreshButtonTooltip;
         OptimizeButton.ToolTip = Strings.RunDeduplicationButton;
+
+        // 検索UIの多言語テキスト
+        SearchPlaceholderTextBlock.Text = Strings.SearchPlaceholder;
+        SearchButtonText.Text = Strings.SearchButtonText;
+        SearchButton.ToolTip = Strings.SearchButtonText;
+        ClearSearchButton.ToolTip = Strings.ClearSearchTooltip;
+        SearchPanelTitleTextBlock.Text = Strings.SearchPanelTitle;
+        CloseSearchPanelButton.ToolTip = Strings.CloseSearchPanelTooltip;
+        NoResultsTextBlock.Text = Strings.NoSearchResults;
     }
 
     /// <summary>
@@ -211,6 +228,16 @@ public partial class MainWindow : Window
         }
 
         DisplayImageAtIndex((int)TimelineSlider.Value);
+
+        // 検索結果が表示されている場合はフレームインデックスとマーカーを再計算
+        if (_searchResults.Count > 0)
+        {
+            foreach (var r in _searchResults)
+            {
+                r.FrameIndex = _items.FindIndex(item => item.FilePath.Equals(r.ImagePath, StringComparison.OrdinalIgnoreCase));
+            }
+            UpdateSearchTicks();
+        }
     }
 
     /// <summary>
@@ -359,6 +386,36 @@ public partial class MainWindow : Window
     {
         switch (e.Key)
         {
+            case Key.F:
+                if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+                {
+                    SearchTextBox.Focus();
+                    SearchTextBox.SelectAll();
+                    e.Handled = true;
+                }
+                break;
+            case Key.Escape:
+                if (SearchResultsPanel.Visibility == Visibility.Visible)
+                {
+                    CloseSearchPanel();
+                    e.Handled = true;
+                }
+                break;
+            case Key.F3:
+                if (_searchResults.Count > 0)
+                {
+                    if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
+                    {
+                        _currentSearchResultIndex = (_currentSearchResultIndex - 1 + _searchResults.Count) % _searchResults.Count;
+                    }
+                    else
+                    {
+                        _currentSearchResultIndex = (_currentSearchResultIndex + 1) % _searchResults.Count;
+                    }
+                    SearchResultsListBox.SelectedIndex = _currentSearchResultIndex;
+                    e.Handled = true;
+                }
+                break;
             case Key.Space:
                 TogglePlayback();
                 e.Handled = true;
@@ -377,6 +434,172 @@ public partial class MainWindow : Window
                 break;
         }
     }
+
+    #region OCR検索関連ハンドラ・メソッド
+
+    private void SearchTextBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            ExecuteSearchAsync();
+            e.Handled = true;
+        }
+    }
+
+    private void SearchTextBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        bool hasText = !string.IsNullOrEmpty(SearchTextBox.Text);
+        SearchPlaceholderTextBlock.Visibility = hasText ? Visibility.Collapsed : Visibility.Visible;
+        ClearSearchButton.Visibility = hasText ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void SearchButton_Click(object sender, RoutedEventArgs e)
+    {
+        ExecuteSearchAsync();
+    }
+
+    private void ClearSearchButton_Click(object sender, RoutedEventArgs e)
+    {
+        SearchTextBox.Text = string.Empty;
+        CloseSearchPanel();
+    }
+
+    private void CloseSearchPanelButton_Click(object sender, RoutedEventArgs e)
+    {
+        CloseSearchPanel();
+    }
+
+    private void CloseSearchPanel()
+    {
+        SearchResultsPanel.Visibility = Visibility.Collapsed;
+        SearchTicksCanvas.Children.Clear();
+        _searchResults.Clear();
+        _currentSearchResultIndex = -1;
+    }
+
+    /// <summary>
+    /// 入力されたキーワードでOCRテキスト検索を実行し、結果を表示
+    /// </summary>
+    private async void ExecuteSearchAsync()
+    {
+        string query = SearchTextBox.Text?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            CloseSearchPanel();
+            return;
+        }
+
+        if (_ocrDatabaseService == null)
+        {
+            return;
+        }
+
+        SearchButton.IsEnabled = false;
+        try
+        {
+            var rawResults = await _ocrDatabaseService.SearchAsync(query);
+
+            _searchResults.Clear();
+            foreach (var r in rawResults)
+            {
+                int frameIdx = _items.FindIndex(item => item.FilePath.Equals(r.ImagePath, StringComparison.OrdinalIgnoreCase));
+                if (frameIdx >= 0)
+                {
+                    _searchResults.Add(new SearchResultDisplayItem
+                    {
+                        ImagePath = r.ImagePath,
+                        Timestamp = r.Timestamp,
+                        Snippet = r.Snippet,
+                        FrameIndex = frameIdx
+                    });
+                }
+            }
+
+            SearchResultsListBox.ItemsSource = null;
+            SearchResultsListBox.ItemsSource = _searchResults;
+
+            SearchResultCountTextBlock.Text = string.Format(Strings.SearchResultsCount, _searchResults.Count);
+            NoResultsTextBlock.Visibility = _searchResults.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            SearchResultsPanel.Visibility = Visibility.Visible;
+
+            UpdateSearchTicks();
+
+            if (_searchResults.Count > 0)
+            {
+                _currentSearchResultIndex = 0;
+                SearchResultsListBox.SelectedIndex = 0;
+                JumpToFrame(_searchResults[0].FrameIndex);
+            }
+        }
+        finally
+        {
+            SearchButton.IsEnabled = true;
+        }
+    }
+
+    private void SearchResultsListBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (SearchResultsListBox.SelectedItem is SearchResultDisplayItem selectedItem)
+        {
+            _currentSearchResultIndex = SearchResultsListBox.SelectedIndex;
+            JumpToFrame(selectedItem.FrameIndex);
+        }
+    }
+
+    private void JumpToFrame(int frameIndex)
+    {
+        if (frameIndex >= 0 && frameIndex < _items.Count)
+        {
+            _playbackTimer.Stop();
+            PlayPauseIconText.Text = "▶";
+            TimelineSlider.Value = frameIndex;
+        }
+    }
+
+    /// <summary>
+    /// 検索ヒットしたコマ位置をタイムラインスライダートラック上にマーカーとして描画
+    /// </summary>
+    private void UpdateSearchTicks()
+    {
+        SearchTicksCanvas.Children.Clear();
+        if (_items.Count <= 1 || _searchResults.Count == 0) return;
+
+        double canvasWidth = SearchTicksCanvas.ActualWidth;
+        if (canvasWidth <= 0) return;
+
+        double max = _items.Count - 1;
+        var solidBrush = new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#38BDF8"));
+        solidBrush.Freeze();
+
+        foreach (var result in _searchResults)
+        {
+            if (result.FrameIndex < 0) continue;
+
+            double ratio = result.FrameIndex / max;
+            double x = ratio * canvasWidth;
+
+            var rect = new System.Windows.Shapes.Rectangle
+            {
+                Width = 3,
+                Height = 8,
+                RadiusX = 1,
+                RadiusY = 1,
+                Fill = solidBrush,
+                Opacity = 0.95
+            };
+
+            System.Windows.Controls.Canvas.SetLeft(rect, Math.Max(0, x - 1.5));
+            System.Windows.Controls.Canvas.SetTop(rect, 0);
+            SearchTicksCanvas.Children.Add(rect);
+        }
+    }
+
+    private void SliderGrid_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        UpdateSearchTicks();
+    }
+
+    #endregion
 
     /// <summary>
     /// アプリケーション終了（トレイアイコンの「終了」選択時など）を通知
@@ -401,4 +624,16 @@ public partial class MainWindow : Window
             UpdateViewerVisibility();
         }
     }
+}
+
+/// <summary>
+/// 検索結果一覧パネルにバインドする表示用モデル
+/// </summary>
+public class SearchResultDisplayItem
+{
+    public string ImagePath { get; set; } = string.Empty;
+    public DateTime Timestamp { get; set; }
+    public string FormattedTimestamp => Timestamp.ToString("yyyy/MM/dd HH:mm:ss");
+    public string Snippet { get; set; } = string.Empty;
+    public int FrameIndex { get; set; } = -1;
 }

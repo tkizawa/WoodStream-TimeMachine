@@ -44,6 +44,7 @@ public partial class SetupWindow : Window
         StorageLimitLabelTextBlock.Text = Strings.StorageLimitLabel;
         StorageLimitNoteTextBlock.Text = Strings.StorageLimitDescription;
         StartWithWindowsTextBlock.Text = Strings.StartWithWindowsLabel;
+        EnableOcrTextBlock.Text = Strings.EnableOcrLabel;
         BrowseButton.Content = Strings.BrowseButton;
         CancelButton.Content = Strings.CancelButton;
         SaveButton.Content = _isInitialSetup ? Strings.SaveAndStartButton : Strings.SaveButton;
@@ -120,6 +121,7 @@ public partial class SetupWindow : Window
         }
 
         StartWithWindowsCheckBox.IsChecked = _settingsManager.Current.StartWithWindows || StartupService.IsStartupEnabled();
+        EnableOcrCheckBox.IsChecked = _settingsManager.Current.EnableOcr;
     }
 
     /// <summary>
@@ -182,6 +184,7 @@ public partial class SetupWindow : Window
         _settingsManager.Current.CaptureIntervalSeconds = interval;
         _settingsManager.Current.MaxStorageSizeMB = limitMB;
         _settingsManager.Current.StartWithWindows = startWithWindows;
+        _settingsManager.Current.EnableOcr = EnableOcrCheckBox.IsChecked == true;
         _settingsManager.Current.IsFirstRun = false;
         _settingsManager.Save();
 

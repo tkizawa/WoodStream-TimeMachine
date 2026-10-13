@@ -44,7 +44,15 @@ Copilot+ PC の「Recall」機能にインスパイアされた、Windows 向け
    - ビュアー表示中は上部に「ビュアー表示中（キャプチャ停止中）」のインジケーターを表示。
    - アプリ終了時のウィンドウ位置およびサイズを自動保存し、次回起動時に正確に復元。
 
-8. **多言語対応**
+8. **Windows標準ローカルOCR文字記録 ＆ タイムライン高速検索**
+   - Windows 10/11 標準搭載の `Windows.Media.Ocr.OcrEngine` を活用し、画面上の文字を完全ローカル・通信不要・高精度にテキスト抽出。
+   - キャプチャ画像を待たせない非同期キューイングにより、バックグラウンドで低負荷に順次テキスト化。
+   - 抽出データは画像保存先フォルダ直下の `DB/timeline_ocr.db`（SQLite）に自動保存。
+   - ビューアー上部の検索バーからキーワードを入力するだけで、該当する過去の画面を瞬時に検索・リストアップ。
+   - 検索結果をクリックするとそのフレームへ一発ジャンプできるほか、タイムラインスライダー上にもヒット箇所が視覚的なマーカードットとして表示されます。
+   - 設定画面で「OCR文字記録を有効にする」のON/OFF切り替えも可能。
+
+9. **多言語対応**
    - Windows の表示言語設定に応じて、日本語と英語が自動的に切り替わります。
 
 ---
@@ -57,6 +65,10 @@ Copilot+ PC の「Recall」機能にインスパイアされた、Windows 向け
 | <kbd>←</kbd> | 1コマ戻る（前のキャプチャへ） |
 | <kbd>→</kbd> | 1コマ進む（次のキャプチャへ） |
 | <kbd>F5</kbd> | 保存先フォルダ内の画像を再読み込み（更新） |
+| <kbd>Ctrl</kbd> + <kbd>F</kbd> | 検索ボックスにフォーカス |
+| <kbd>Enter</kbd> (検索中) | 入力したキーワードでOCR検索を実行 |
+| <kbd>F3</kbd> / <kbd>Shift</kbd> + <kbd>F3</kbd> | 検索結果の次 / 前のフレームへジャンプ |
+| <kbd>Esc</kbd> | 検索結果パネルを閉じる |
 
 ---
 
@@ -64,8 +76,10 @@ Copilot+ PC の「Recall」機能にインスパイアされた、Windows 向け
 
 - **OS**: Windows 10 / Windows 11 (x64, Arm64)
 - **言語**: C#
-- **フレームワーク**: .NET 10.0 (`net10.0-windows`)
+- **フレームワーク**: .NET 10.0 (`net10.0-windows10.0.19041.0`)
 - **UI フレームワーク**: WPF (Windows Presentation Foundation)
+- **OCR エンジン**: Windows 標準 `Windows.Media.Ocr.OcrEngine`（完全ローカル実行）
+- **データベース**: SQLite (`Microsoft.Data.Sqlite`)（保存先: `StorageFolder\DB\timeline_ocr.db`）
 - **高DPI対応**: Per-Monitor V2
 
 ---
@@ -84,6 +98,8 @@ WoodStream-TimeMachine/
 │   ├── CaptureService.cs       # 画面自動キャプチャサービス（可変間隔）
 │   ├── DeduplicationService.cs # 1時間ごとの重複間引き・類似度判定サービス
 │   ├── StorageCleanupService.cs# 1時間ごとのフォルダ容量制限監視・クリーンアップサービス
+│   ├── OcrDatabaseService.cs   # SQLiteによるOCRテキスト保存・検索サービス（DBサブフォルダ内）
+│   ├── OcrService.cs           # Windows.Media.Ocrを用いたバックグラウンドテキスト抽出サービス
 │   ├── StartupService.cs       # Windows起動時自動起動管理サービス
 │   ├── SettingsManager.cs      # 設定ファイルの入出力・永続化管理
 │   └── TrayIconService.cs      # タスクトレイアイコンおよびコンテキストメニュー管理
@@ -91,7 +107,7 @@ WoodStream-TimeMachine/
 │   ├── SetupWindow.xaml        # 初回セットアップ・設定ダイアログ
 │   └── SetupWindow.xaml.cs
 ├── App.xaml / App.xaml.cs       # アプリケーションエントリポイント・常駐ライフサイクル管理
-├── MainWindow.xaml / .cs        # タイムラインビューアー画面
+├── MainWindow.xaml / .cs        # タイムラインビューアー＆テキスト検索画面
 ├── WoodStreamTimeMachine.csproj # プロジェクトファイル (.NET 10)
 ├── app.manifest                 # アプリケーションマニフェスト (Per-Monitor V2)
 └── README.md                    # 本ドキュメント

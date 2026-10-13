@@ -10,6 +10,7 @@ namespace WoodStreamTimeMachine.Services;
 public class StorageCleanupService : IDisposable
 {
     private readonly SettingsManager _settingsManager;
+    private readonly OcrDatabaseService? _ocrDatabaseService;
     private CancellationTokenSource? _cts;
     private Task? _cleanupTask;
 
@@ -18,9 +19,10 @@ public class StorageCleanupService : IDisposable
     /// </summary>
     public event Action<int>? CleanupCompleted;
 
-    public StorageCleanupService(SettingsManager settingsManager)
+    public StorageCleanupService(SettingsManager settingsManager, OcrDatabaseService? ocrDatabaseService = null)
     {
         _settingsManager = settingsManager;
+        _ocrDatabaseService = ocrDatabaseService;
     }
 
     /// <summary>
@@ -150,10 +152,13 @@ public class StorageCleanupService : IDisposable
                     try
                     {
                         long fileLength = file.Length;
+                        string fullName = file.FullName;
                         file.Delete();
                         totalBytes -= fileLength;
                         bytesFreed += fileLength;
                         deletedCount++;
+
+                        _ocrDatabaseService?.DeleteRecordAsync(fullName);
                     }
                     catch (Exception ex)
                     {

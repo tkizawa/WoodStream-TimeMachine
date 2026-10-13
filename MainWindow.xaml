@@ -158,8 +158,66 @@
                     </StackPanel>
                 </Border>
 
-                <!-- ツールバーボタン -->
+                <!-- ツールバーボタン & 検索バー -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- 検索バー -->
+                    <Border x:Name="SearchBarBorder"
+                            Width="240"
+                            Height="32"
+                            Margin="0,0,8,0"
+                            Background="#1E293B"
+                            BorderBrush="#334155"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="8,0">
+                        <Grid VerticalAlignment="Center">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="🔍" FontSize="11" Foreground="#94A3B8" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBox x:Name="SearchTextBox"
+                                     Grid.Column="1"
+                                     Background="Transparent"
+                                     Foreground="#F8FAFC"
+                                     BorderThickness="0"
+                                     VerticalAlignment="Center"
+                                     FontSize="12"
+                                     CaretBrush="#38BDF8"
+                                     KeyDown="SearchTextBox_KeyDown"
+                                     TextChanged="SearchTextBox_TextChanged"/>
+                            <TextBlock x:Name="SearchPlaceholderTextBlock"
+                                       Grid.Column="1"
+                                       Text="画面内の文字を検索 (Enter)..."
+                                       Foreground="#64748B"
+                                       FontSize="12"
+                                       VerticalAlignment="Center"
+                                       IsHitTestVisible="False"/>
+                            <Button x:Name="ClearSearchButton"
+                                    Grid.Column="2"
+                                    Content="✕"
+                                    Width="18" Height="18"
+                                    Background="Transparent"
+                                    Foreground="#94A3B8"
+                                    BorderThickness="0"
+                                    FontSize="11"
+                                    Cursor="Hand"
+                                    Visibility="Collapsed"
+                                    Click="ClearSearchButton_Click"/>
+                        </Grid>
+                    </Border>
+
+                    <Button x:Name="SearchButton"
+                            Style="{StaticResource ControlButtonStyle}"
+                            Margin="0,0,8,0"
+                            Click="SearchButton_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🔍" Margin="0,0,4,0"/>
+                            <TextBlock x:Name="SearchButtonText" Text="検索"/>
+                        </StackPanel>
+                    </Button>
+
                     <Button x:Name="OptimizeButton"
                             Style="{StaticResource ControlButtonStyle}"
                             Margin="0,0,8,0"
@@ -251,6 +309,132 @@
                            FontSize="13"
                            FontWeight="Medium"/>
             </Border>
+
+            <!-- 検索結果サイドドロワーパネル -->
+            <Border x:Name="SearchResultsPanel"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Stretch"
+                    Width="330"
+                    Background="#F00F172A"
+                    BorderBrush="#1E293B"
+                    BorderThickness="1,0,0,0"
+                    Visibility="Collapsed">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <!-- パネルヘッダー -->
+                        <RowDefinition Height="Auto"/>
+                        <!-- 検索結果リスト -->
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- パネルヘッダー -->
+                    <Border Grid.Row="0"
+                            Background="#1E293B"
+                            BorderBrush="#334155"
+                            BorderThickness="0,0,0,1"
+                            Padding="14,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock x:Name="SearchPanelTitleTextBlock"
+                                           Text="検索結果"
+                                           FontWeight="Bold"
+                                           FontSize="13"
+                                           Foreground="#38BDF8"/>
+                                <TextBlock x:Name="SearchResultCountTextBlock"
+                                           Text="0 件見つかりました"
+                                           FontSize="11"
+                                           Foreground="#94A3B8"
+                                           Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <Button x:Name="CloseSearchPanelButton"
+                                    Grid.Column="1"
+                                    Content="✕"
+                                    Width="24" Height="24"
+                                    Background="Transparent"
+                                    Foreground="#94A3B8"
+                                    BorderThickness="0"
+                                    FontSize="12"
+                                    Cursor="Hand"
+                                    VerticalAlignment="Center"
+                                    Click="CloseSearchPanelButton_Click"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- 検索結果一覧 -->
+                    <ListBox x:Name="SearchResultsListBox"
+                             Grid.Row="1"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             SelectionChanged="SearchResultsListBox_SelectionChanged">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Padding" Value="10,8"/>
+                                <Setter Property="Margin" Value="6,3"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border x:Name="itemBorder"
+                                                    Background="#151E2E"
+                                                    BorderBrush="#1E293B"
+                                                    BorderThickness="1"
+                                                    CornerRadius="6"
+                                                    Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="itemBorder" Property="Background" Value="#1E293B"/>
+                                                    <Setter TargetName="itemBorder" Property="BorderBrush" Value="#38BDF8"/>
+                                                </Trigger>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="itemBorder" Property="Background" Value="#0C4A6E"/>
+                                                    <Setter TargetName="itemBorder" Property="BorderBrush" Value="#0284C7"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                        <TextBlock Text="🕒" FontSize="11" Foreground="#38BDF8" Margin="0,0,6,0"/>
+                                        <TextBlock Text="{Binding FormattedTimestamp}"
+                                                   FontSize="12"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#F8FAFC"/>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding Snippet}"
+                                               FontSize="11"
+                                               Foreground="#94A3B8"
+                                               TextWrapping="Wrap"
+                                               LineHeight="16"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <!-- 検索結果なしメッセージ -->
+                    <TextBlock x:Name="NoResultsTextBlock"
+                               Grid.Row="1"
+                               Text="一致する画面が見つかりませんでした"
+                               Foreground="#64748B"
+                               FontSize="12"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Margin="20"
+                               TextWrapping="Wrap"
+                               Visibility="Collapsed"/>
+                </Grid>
+            </Border>
         </Grid>
 
         <!-- タイムラインコントロールバー -->
@@ -268,7 +452,14 @@
                 </Grid.RowDefinitions>
 
                 <!-- 横長スライダー -->
-                <Grid Grid.Row="0" Margin="0,0,0,12">
+                <Grid Grid.Row="0" Margin="0,0,0,12" SizeChanged="SliderGrid_SizeChanged">
+                    <!-- 検索結果ヒット位置のインジケーターキャンバス -->
+                    <Canvas x:Name="SearchTicksCanvas"
+                            Height="8"
+                            VerticalAlignment="Center"
+                            IsHitTestVisible="False"
+                            Margin="10,0"/>
+
                     <Slider x:Name="TimelineSlider"
                             Style="{StaticResource TimelineSliderStyle}"
                             Minimum="0"

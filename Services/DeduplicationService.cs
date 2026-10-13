@@ -11,6 +11,7 @@ namespace WoodStreamTimeMachine.Services;
 public class DeduplicationService : IDisposable
 {
     private readonly SettingsManager _settingsManager;
+    private readonly OcrDatabaseService? _ocrDatabaseService;
     private CancellationTokenSource? _cts;
     private Task? _timerTask;
 
@@ -19,9 +20,10 @@ public class DeduplicationService : IDisposable
     /// </summary>
     public event Action<int>? OptimizationCompleted;
 
-    public DeduplicationService(SettingsManager settingsManager)
+    public DeduplicationService(SettingsManager settingsManager, OcrDatabaseService? ocrDatabaseService = null)
     {
         _settingsManager = settingsManager;
+        _ocrDatabaseService = ocrDatabaseService;
     }
 
     /// <summary>
@@ -152,8 +154,10 @@ public class DeduplicationService : IDisposable
                 {
                     try
                     {
-                        File.Delete(file.FullName);
+                        string fullPath = file.FullName;
+                        File.Delete(fullPath);
                         deletedCount++;
+                        _ocrDatabaseService?.DeleteRecordAsync(fullPath);
                     }
                     catch (Exception ex)
                     {
