@@ -6,7 +6,7 @@
         xmlns:res="clr-namespace:WoodStreamTimeMachine.Resources"
         mc:Ignorable="d"
         Title="WoodStream TimeMachine"
-        Width="560" Height="480"
+        Width="560" Height="510"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
         Background="#18181B"
@@ -287,9 +287,16 @@
                        TextWrapping="Wrap"/>
 
             <CheckBox x:Name="StartWithWindowsCheckBox"
-                      Margin="0,0,0,0">
+                      Margin="0,0,0,8">
                 <TextBlock x:Name="StartWithWindowsTextBlock"
                            Text="Windows 起動時に自動起動する"
+                           VerticalAlignment="Center"/>
+            </CheckBox>
+
+            <CheckBox x:Name="EnableOcrCheckBox"
+                      Margin="0,0,0,0">
+                <TextBlock x:Name="EnableOcrTextBlock"
+                           Text="OCR文字記録を有効にする (タイムライン検索用)"
                            VerticalAlignment="Center"/>
             </CheckBox>
         </StackPanel>

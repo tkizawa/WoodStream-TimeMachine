@@ -22,6 +22,8 @@ public partial class App : System.Windows.Application
     private CaptureService? _captureService;
     private DeduplicationService? _deduplicationService;
     private StorageCleanupService? _storageCleanupService;
+    private OcrDatabaseService? _ocrDatabaseService;
+    private OcrService? _ocrService;
     private TrayIconService? _trayIconService;
     private MainWindow? _mainWindow;
 
@@ -92,15 +94,22 @@ public partial class App : System.Windows.Application
             StartupService.SetStartup(true);
         }
 
-        // 3. サービスの初期化
-        _deduplicationService = new DeduplicationService(_settingsManager);
-        _storageCleanupService = new StorageCleanupService(_settingsManager);
-        _captureService = new CaptureService(_settingsManager);
-        _mainWindow = new MainWindow(_settingsManager, _deduplicationService, _captureService);
+        // 3. サービスの初期化（OCR用SQLiteデータベースおよびOCRエンジンの初期化を含む）
+        _ocrDatabaseService = new OcrDatabaseService();
+        _ocrDatabaseService.Initialize(_settingsManager.Current.StorageFolderPath);
 
-        // 新規キャプチャ保存イベントをビューアーに接続
+        _ocrService = new OcrService(_settingsManager, _ocrDatabaseService);
+        _ocrService.EnqueueExistingImages(_settingsManager.Current.StorageFolderPath);
+
+        _deduplicationService = new DeduplicationService(_settingsManager, _ocrDatabaseService);
+        _storageCleanupService = new StorageCleanupService(_settingsManager, _ocrDatabaseService);
+        _captureService = new CaptureService(_settingsManager);
+        _mainWindow = new MainWindow(_settingsManager, _deduplicationService, _captureService, _ocrDatabaseService);
+
+        // 新規キャプチャ保存イベントをビューアーおよびOCRキューに接続
         _captureService.CaptureSaved += (path, time) =>
         {
+            _ocrService?.Enqueue(path, time);
             _mainWindow?.OnNewCaptureSaved(path, time);
         };
 
@@ -212,6 +221,10 @@ public partial class App : System.Windows.Application
             // 容量制限クリーンアップを即時実行
             _ = _storageCleanupService?.RunCleanupAsync();
 
+            // 保存先が変更された場合はDB初期化・OCRキューを更新
+            _ocrDatabaseService?.Initialize(_settingsManager.Current.StorageFolderPath);
+            _ocrService?.EnqueueExistingImages(_settingsManager.Current.StorageFolderPath);
+
             // 保存先が変更された場合はビューアーを再読込
             _mainWindow?.LoadCaptures(preserveIndex: false);
         }
@@ -254,6 +267,9 @@ public partial class App : System.Windows.Application
             _storageCleanupService.Dispose();
         }
 
+        _ocrService?.Dispose();
+        _ocrDatabaseService?.Dispose();
+
         // トレイアイコンの破棄
         _trayIconService?.Dispose();
 
@@ -279,6 +295,8 @@ public partial class App : System.Windows.Application
         _captureService?.Dispose();
         _deduplicationService?.Dispose();
         _storageCleanupService?.Dispose();
+        _ocrService?.Dispose();
+        _ocrDatabaseService?.Dispose();
         base.OnExit(e);
     }
 }

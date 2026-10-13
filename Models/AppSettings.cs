@@ -26,6 +26,11 @@ public class AppSettings
     public bool StartWithWindows { get; set; } = false;
 
     /// <summary>
+    /// OCR文字記録（テキスト抽出＆検索機能）を有効にするかどうか デフォルトtrue
+    /// </summary>
+    public bool EnableOcr { get; set; } = true;
+
+    /// <summary>
     /// 重複画像の最適化間隔（分） デフォルト60分（1時間）
     /// </summary>
     public int OptimizationIntervalMinutes { get; set; } = 60;

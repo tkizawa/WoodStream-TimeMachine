@@ -35,6 +35,7 @@ public static class Strings
         ? "※1時間ごとに容量を判定し、上限超過時は古い画像から自動削除します。" 
         : "* Checked hourly; oldest captures are deleted when exceeded.";
     public static string StartWithWindowsLabel => IsJapanese ? "Windows 起動時に自動起動する" : "Start automatically with Windows";
+    public static string EnableOcrLabel => IsJapanese ? "OCR文字記録を有効にする (タイムライン検索用)" : "Enable OCR text capture (for timeline search)";
     public static string SaveAndStartButton => IsJapanese ? "保存して開始" : "Save & Start";
     public static string SaveButton => IsJapanese ? "保存" : "Save";
     public static string CancelButton => IsJapanese ? "キャンセル" : "Cancel";
@@ -53,4 +54,11 @@ public static class Strings
     public static string RunDeduplicationButton => IsJapanese ? "今すぐ最適化 (重複間引き)" : "Optimize Now (Deduplicate)";
     public static string OptimizationDoneMessage => IsJapanese ? "{0} 枚の重複・微小差分画像を間引きました。" : "Cleaned up {0} duplicate / nearly identical captures.";
     public static string CapturePausedBadge => IsJapanese ? "ビュアー表示中（キャプチャ停止中）" : "Recording paused while viewer is open";
+    public static string SearchPlaceholder => IsJapanese ? "画面内の文字を検索 (Enter)..." : "Search screen text (Enter)...";
+    public static string SearchButtonText => IsJapanese ? "検索" : "Search";
+    public static string ClearSearchTooltip => IsJapanese ? "検索をクリア" : "Clear search";
+    public static string SearchResultsCount => IsJapanese ? "{0} 件見つかりました" : "Found {0} matches";
+    public static string NoSearchResults => IsJapanese ? "一致する画面が見つかりませんでした" : "No matching screens found";
+    public static string SearchPanelTitle => IsJapanese ? "検索結果" : "Search Results";
+    public static string CloseSearchPanelTooltip => IsJapanese ? "検索結果を閉じる (Esc)" : "Close search results (Esc)";
 }
