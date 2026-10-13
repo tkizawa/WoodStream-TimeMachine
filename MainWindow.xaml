@@ -243,11 +243,134 @@
         <!-- メイン画像ビューアーエリア -->
         <Grid Grid.Row="1" Background="#020617">
             <!-- キャプチャ画像表示コントロール -->
-            <Image x:Name="CaptureImage"
-                   Stretch="Uniform"
-                   HorizontalAlignment="Center"
-                   VerticalAlignment="Center"
-                   RenderOptions.BitmapScalingMode="HighQuality"/>
+            <ScrollViewer x:Name="ImageScrollViewer"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Auto"
+                          Background="#020617"
+                          CanContentScroll="False"
+                          SizeChanged="ImageScrollViewer_SizeChanged">
+                <Image x:Name="CaptureImage"
+                       Stretch="None"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       RenderOptions.BitmapScalingMode="HighQuality"
+                       RenderTransformOrigin="0.5,0.5"/>
+            </ScrollViewer>
+
+            <Border HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Margin="20"
+                    Background="#CC0F172A"
+                    BorderBrush="#334155"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="10,8">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="ZoomOutButton"
+                            Width="28" Height="28"
+                            Margin="0,0,8,0"
+                            Style="{StaticResource ControlButtonStyle}"
+                            Content="−"
+                            FontSize="18"
+                            FontWeight="Bold"
+                            Click="ZoomOutButton_Click"/>
+                    <Slider x:Name="ZoomSlider"
+                            Width="170"
+                            Minimum="25"
+                            Maximum="400"
+                            Value="100"
+                            TickFrequency="5"
+                            IsSnapToTickEnabled="False"
+                            ValueChanged="ZoomSlider_ValueChanged"/>
+                    <Button x:Name="ZoomInButton"
+                            Width="28" Height="28"
+                            Margin="8,0,8,0"
+                            Style="{StaticResource ControlButtonStyle}"
+                            Content="＋"
+                            FontSize="18"
+                            FontWeight="Bold"
+                            Click="ZoomInButton_Click"/>
+                    <Button x:Name="FitToWindowButton"
+                            Style="{StaticResource ControlButtonStyle}"
+                            Content="適合"
+                            Click="FitToWindowButton_Click"/>
+                </StackPanel>
+            </Border>
+
+            <Border x:Name="MonitorThumbnailsPanel"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Bottom"
+                    Margin="0,0,0,20"
+                    Background="#CC0F172A"
+                    BorderBrush="#334155"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="12,8"
+                    Visibility="Collapsed">
+                <StackPanel>
+                    <TextBlock Text="モニタ切替"
+                               FontSize="11"
+                               Foreground="#94A3B8"
+                               Margin="0,0,0,8"/>
+                    <ListBox x:Name="MonitorThumbList"
+                             SelectionChanged="MonitorThumbList_SelectionChanged"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Hidden"
+                             ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                        <ListBox.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ListBox.ItemsPanel>
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Padding" Value="0"/>
+                                <Setter Property="Margin" Value="4"/>
+                                <Setter Property="BorderThickness" Value="1"/>
+                                <Setter Property="BorderBrush" Value="Transparent"/>
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border x:Name="ThumbBorder"
+                                                    Background="Transparent"
+                                                    BorderBrush="Transparent"
+                                                    BorderThickness="1"
+                                                    CornerRadius="6"
+                                                    Padding="4">
+                                                <ContentPresenter/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="ThumbBorder" Property="BorderBrush" Value="#38BDF8"/>
+                                                    <Setter TargetName="ThumbBorder" Property="Background" Value="#0F172A"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel>
+                                    <Image Source="{Binding Preview}"
+                                           Width="120"
+                                           Height="80"
+                                           Stretch="UniformToFill"
+                                           Margin="0,0,0,4"/>
+                                    <TextBlock Text="{Binding Name}"
+                                               Foreground="#F8FAFC"
+                                               FontSize="10"
+                                               HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </StackPanel>
+            </Border>
 
             <!-- 画像未存在時の案内プレースホルダー -->
             <Border x:Name="EmptyStateBorder"

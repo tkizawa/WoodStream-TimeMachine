@@ -1,7 +1,10 @@
 using System.ComponentModel;
+using System.Drawing;
+using System.Drawing.Imaging;
 using System.Globalization;
 using System.IO;
 using System.Windows;
+using System.Windows.Forms;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -21,9 +24,15 @@ public partial class MainWindow : Window
     private readonly OcrDatabaseService? _ocrDatabaseService;
     private readonly List<CaptureItem> _items = new();
     private readonly List<SearchResultDisplayItem> _searchResults = new();
+    private readonly List<MonitorPreviewItem> _monitorPreviews = new();
     private readonly DispatcherTimer _playbackTimer;
     private int _currentSearchResultIndex = -1;
+    private int _selectedMonitorIndex = -1;
     private bool _isExplicitExit = false;
+    private const double MinZoom = 0.25;
+    private const double MaxZoom = 4.0;
+    private double _imageZoom = 1.0;
+    private bool _fitToWindowEnabled = true;
 
     private record CaptureItem(string FilePath, DateTime Timestamp);
 
@@ -272,14 +281,7 @@ public partial class MainWindow : Window
         {
             if (File.Exists(item.FilePath))
             {
-                var bitmap = new BitmapImage();
-                bitmap.BeginInit();
-                bitmap.UriSource = new Uri(item.FilePath, UriKind.Absolute);
-                bitmap.CacheOption = BitmapCacheOption.OnLoad; // ファイルロックを即座に解放
-                bitmap.EndInit();
-                bitmap.Freeze(); // スレッド共有および高速レンダリング
-
-                CaptureImage.Source = bitmap;
+                UpdateSelectedMonitorView(item.FilePath, index);
 
                 // オーバーレイ情報の更新
                 TimestampOverlayTextBlock.Text = item.Timestamp.ToString("yyyy/MM/dd HH:mm:ss");
@@ -289,6 +291,211 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"画像表示エラー: {ex.Message}");
+        }
+    }
+
+    private void UpdateSelectedMonitorView(string filePath, int frameIndex)
+    {
+        _selectedMonitorIndex = -1;
+        _monitorPreviews.Clear();
+        MonitorThumbnailsPanel.Visibility = Visibility.Collapsed;
+
+        LoadBitmapIntoViewer(filePath);
+    }
+
+    private void SyncCaptureImageToSelectedMonitor(string filePath)
+    {
+        LoadBitmapIntoViewer(filePath);
+    }
+
+    private void LoadBitmapIntoViewer(string filePath)
+    {
+        var bitmap = new BitmapImage();
+        bitmap.BeginInit();
+        bitmap.UriSource = new Uri(filePath, UriKind.Absolute);
+        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+        bitmap.EndInit();
+        bitmap.Freeze();
+        CaptureImage.Source = bitmap;
+        ApplyCurrentZoom();
+    }
+
+    private void ApplyCurrentZoom()
+    {
+        if (CaptureImage.Source is not BitmapSource source)
+        {
+            return;
+        }
+
+        double zoom = _fitToWindowEnabled ? ComputeFitZoom(source.PixelWidth, source.PixelHeight) : _imageZoom;
+        zoom = Math.Clamp(zoom, MinZoom, MaxZoom);
+
+        _imageZoom = zoom;
+        CaptureImage.LayoutTransform = new System.Windows.Media.ScaleTransform(zoom, zoom);
+        ZoomSlider.ValueChanged -= ZoomSlider_ValueChanged;
+        ZoomSlider.Value = zoom * 100.0;
+        ZoomSlider.ValueChanged += ZoomSlider_ValueChanged;
+    }
+
+    private double ComputeFitZoom(int pixelWidth, int pixelHeight)
+    {
+        if (ImageScrollViewer.ActualWidth <= 0 || ImageScrollViewer.ActualHeight <= 0 || pixelWidth <= 0 || pixelHeight <= 0)
+        {
+            return _imageZoom;
+        }
+
+        double widthScale = ImageScrollViewer.ActualWidth / pixelWidth;
+        double heightScale = ImageScrollViewer.ActualHeight / pixelHeight;
+        double fitScale = Math.Min(widthScale, heightScale) * 0.95;
+        return Math.Clamp(fitScale, MinZoom, MaxZoom);
+    }
+
+    private void ImageScrollViewer_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (_fitToWindowEnabled)
+        {
+            ApplyCurrentZoom();
+        }
+    }
+
+    private void ZoomSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (CaptureImage.Source is null) return;
+
+        if (Math.Abs(e.NewValue - e.OldValue) < 0.01)
+        {
+            return;
+        }
+
+        _fitToWindowEnabled = false;
+        _imageZoom = Math.Clamp(e.NewValue / 100.0, MinZoom, MaxZoom);
+        CaptureImage.LayoutTransform = new System.Windows.Media.ScaleTransform(_imageZoom, _imageZoom);
+    }
+
+    private void ZoomInButton_Click(object sender, RoutedEventArgs e)
+    {
+        _fitToWindowEnabled = false;
+        ZoomSlider.Value = Math.Min(ZoomSlider.Maximum, ZoomSlider.Value + 10);
+    }
+
+    private void ZoomOutButton_Click(object sender, RoutedEventArgs e)
+    {
+        _fitToWindowEnabled = false;
+        ZoomSlider.Value = Math.Max(ZoomSlider.Minimum, ZoomSlider.Value - 10);
+    }
+
+    private void FitToWindowButton_Click(object sender, RoutedEventArgs e)
+    {
+        _fitToWindowEnabled = true;
+        ApplyCurrentZoom();
+    }
+
+    private static List<Rectangle> LoadMonitorLayout(string filePath)
+    {
+        string metadataPath = filePath + ".meta.json";
+        if (File.Exists(metadataPath))
+        {
+            try
+            {
+                string json = File.ReadAllText(metadataPath);
+                using var document = System.Text.Json.JsonDocument.Parse(json);
+                if (document.RootElement.TryGetProperty("Monitors", out var monitorsElement) && monitorsElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+                {
+                    var rectangles = new List<Rectangle>();
+                    foreach (var item in monitorsElement.EnumerateArray())
+                    {
+                        int x = item.TryGetProperty("X", out var xProp) ? xProp.GetInt32() : 0;
+                        int y = item.TryGetProperty("Y", out var yProp) ? yProp.GetInt32() : 0;
+                        int width = item.TryGetProperty("Width", out var wProp) ? wProp.GetInt32() : 0;
+                        int height = item.TryGetProperty("Height", out var hProp) ? hProp.GetInt32() : 0;
+                        rectangles.Add(new Rectangle(x, y, width, height));
+                    }
+
+                    if (rectangles.Count > 0)
+                    {
+                        return rectangles;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"モニタ配置メタデータ読み込みエラー: {ex.Message}");
+            }
+        }
+
+        var screens = Screen.AllScreens
+            .OrderBy(screen => screen.Bounds.X)
+            .ThenBy(screen => screen.Bounds.Y)
+            .ToList();
+
+        if (screens.Count <= 1)
+        {
+            return new List<Rectangle>();
+        }
+
+        var virtualBounds = new Rectangle(
+            screens.Min(s => s.Bounds.Left),
+            screens.Min(s => s.Bounds.Top),
+            screens.Max(s => s.Bounds.Right) - screens.Min(s => s.Bounds.Left),
+            screens.Max(s => s.Bounds.Bottom) - screens.Min(s => s.Bounds.Top));
+
+        var layout = new List<Rectangle>();
+        foreach (var screen in screens)
+        {
+            int x = Math.Max(0, screen.Bounds.X - virtualBounds.X);
+            int y = Math.Max(0, screen.Bounds.Y - virtualBounds.Y);
+            layout.Add(new Rectangle(x, y, screen.Bounds.Width, screen.Bounds.Height));
+        }
+
+        return layout;
+    }
+
+    private static Bitmap CropBitmap(Bitmap sourceBitmap, Rectangle cropRegion)
+    {
+        if (cropRegion.Width <= 0 || cropRegion.Height <= 0 || cropRegion.X < 0 || cropRegion.Y < 0 ||
+            cropRegion.Right > sourceBitmap.Width || cropRegion.Bottom > sourceBitmap.Height)
+        {
+            return new Bitmap(1, 1, PixelFormat.Format32bppArgb);
+        }
+
+        var cropped = new Bitmap(cropRegion.Width, cropRegion.Height, PixelFormat.Format32bppArgb);
+        using var graphics = Graphics.FromImage(cropped);
+        graphics.DrawImage(sourceBitmap, new Rectangle(0, 0, cropRegion.Width, cropRegion.Height), cropRegion, GraphicsUnit.Pixel);
+        return cropped;
+    }
+
+    private static BitmapImage CreateBitmapSource(Bitmap bitmap)
+    {
+        using var stream = new MemoryStream();
+        bitmap.Save(stream, ImageFormat.Jpeg);
+        stream.Position = 0;
+
+        var image = new BitmapImage();
+        image.BeginInit();
+        image.CacheOption = BitmapCacheOption.OnLoad;
+        image.StreamSource = stream;
+        image.EndInit();
+        image.Freeze();
+        return image;
+    }
+
+    private void MonitorThumbList_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (MonitorThumbList.SelectedItem is not MonitorPreviewItem selected)
+        {
+            return;
+        }
+
+        _selectedMonitorIndex = selected.Index;
+
+        int currentIndex = (int)TimelineSlider.Value;
+        if (currentIndex >= 0 && currentIndex < _items.Count)
+        {
+            var currentItem = _items[currentIndex];
+            if (File.Exists(currentItem.FilePath))
+            {
+                SyncCaptureImageToSelectedMonitor(currentItem.FilePath);
+            }
         }
     }
 
@@ -636,4 +843,11 @@ public class SearchResultDisplayItem
     public string FormattedTimestamp => Timestamp.ToString("yyyy/MM/dd HH:mm:ss");
     public string Snippet { get; set; } = string.Empty;
     public int FrameIndex { get; set; } = -1;
+}
+
+public class MonitorPreviewItem
+{
+    public int Index { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public BitmapSource Preview { get; set; } = null!;
 }

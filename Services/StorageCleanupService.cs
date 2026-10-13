@@ -153,7 +153,17 @@ public class StorageCleanupService : IDisposable
                     {
                         long fileLength = file.Length;
                         string fullName = file.FullName;
-                        file.Delete();
+                        string metadataPath = fullName + ".meta.json";
+
+                        if (File.Exists(fullName))
+                        {
+                            file.Delete();
+                        }
+                        if (File.Exists(metadataPath))
+                        {
+                            File.Delete(metadataPath);
+                        }
+
                         totalBytes -= fileLength;
                         bytesFreed += fileLength;
                         deletedCount++;

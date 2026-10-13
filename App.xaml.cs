@@ -26,6 +26,7 @@ public partial class App : System.Windows.Application
     private OcrService? _ocrService;
     private TrayIconService? _trayIconService;
     private MainWindow? _mainWindow;
+    private bool _isShuttingDown;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -235,7 +236,18 @@ public partial class App : System.Windows.Application
     /// </summary>
     private async void ExitApplication()
     {
-        // 多重起動リスナーの停止
+        if (_isShuttingDown)
+        {
+            return;
+        }
+
+        _isShuttingDown = true;
+        await ShutdownServicesAsync();
+        Shutdown();
+    }
+
+    private async Task ShutdownServicesAsync()
+    {
         _activationCts?.Cancel();
         _activationEvent?.Set();
         _activationEvent?.Dispose();
@@ -248,7 +260,6 @@ public partial class App : System.Windows.Application
             _singleInstanceMutex = null;
         }
 
-        // バックグラウンドタスクの停止
         if (_captureService != null)
         {
             await _captureService.StopAsync();
@@ -267,36 +278,43 @@ public partial class App : System.Windows.Application
             _storageCleanupService.Dispose();
         }
 
-        _ocrService?.Dispose();
+        if (_ocrService != null)
+        {
+            _ocrService.Dispose();
+        }
+
         _ocrDatabaseService?.Dispose();
 
-        // トレイアイコンの破棄
         _trayIconService?.Dispose();
 
-        // メインウィンドウの終了
         _mainWindow?.ForceClose();
-
-        Shutdown();
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
-        _activationCts?.Cancel();
-        _activationEvent?.Dispose();
-
-        if (_singleInstanceMutex != null)
+        if (!_isShuttingDown)
         {
-            try { _singleInstanceMutex.ReleaseMutex(); } catch { }
-            _singleInstanceMutex.Dispose();
-            _singleInstanceMutex = null;
+            _isShuttingDown = true;
+            _activationCts?.Cancel();
+            _activationEvent?.Set();
+            _activationEvent?.Dispose();
+            _activationEvent = null;
+
+            if (_singleInstanceMutex != null)
+            {
+                try { _singleInstanceMutex.ReleaseMutex(); } catch { }
+                _singleInstanceMutex.Dispose();
+                _singleInstanceMutex = null;
+            }
+
+            _trayIconService?.Dispose();
+            _captureService?.Dispose();
+            _deduplicationService?.Dispose();
+            _storageCleanupService?.Dispose();
+            _ocrService?.Dispose();
+            _ocrDatabaseService?.Dispose();
         }
 
-        _trayIconService?.Dispose();
-        _captureService?.Dispose();
-        _deduplicationService?.Dispose();
-        _storageCleanupService?.Dispose();
-        _ocrService?.Dispose();
-        _ocrDatabaseService?.Dispose();
         base.OnExit(e);
     }
 }

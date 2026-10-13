@@ -1,6 +1,7 @@
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Text.Json;
 using System.Windows.Forms;
 using WoodStreamTimeMachine.Services;
 
@@ -184,13 +185,50 @@ public class CaptureService : IDisposable
         // バックグラウンドスレッドで画面キャプチャと画像保存を実行
         await Task.Run(() =>
         {
-            // メインディスプレイの解像度範囲を取得
-            Rectangle bounds = Screen.PrimaryScreen?.Bounds ?? Screen.AllScreens[0].Bounds;
+            var screens = Screen.AllScreens
+                .OrderBy(screen => screen.Bounds.X)
+                .ThenBy(screen => screen.Bounds.Y)
+                .ToList();
 
-            using var bitmap = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format32bppRgb);
+            if (screens.Count == 0)
+            {
+                return;
+            }
+
+            var virtualBounds = new Rectangle(
+                SystemInformation.VirtualScreen.Left,
+                SystemInformation.VirtualScreen.Top,
+                SystemInformation.VirtualScreen.Width,
+                SystemInformation.VirtualScreen.Height);
+
+            if (virtualBounds.Width <= 0 || virtualBounds.Height <= 0)
+            {
+                return;
+            }
+
+            var monitorMetadata = screens
+                .Select(screen => new
+                {
+                    Left = screen.Bounds.Left,
+                    Top = screen.Bounds.Top,
+                    Width = screen.Bounds.Width,
+                    Height = screen.Bounds.Height,
+                    X = screen.Bounds.Left - virtualBounds.Left,
+                    Y = screen.Bounds.Top - virtualBounds.Top
+                })
+                .ToList();
+
+            using var bitmap = new Bitmap(virtualBounds.Width, virtualBounds.Height, PixelFormat.Format32bppRgb);
             using (var g = Graphics.FromImage(bitmap))
             {
-                g.CopyFromScreen(bounds.X, bounds.Y, 0, 0, bounds.Size, CopyPixelOperation.SourceCopy);
+                g.Clear(Color.Black);
+                g.CopyFromScreen(
+                    virtualBounds.Left,
+                    virtualBounds.Top,
+                    0,
+                    0,
+                    bitmap.Size,
+                    CopyPixelOperation.SourceCopy);
             }
 
             // JPEG形式で保存
@@ -202,6 +240,29 @@ public class CaptureService : IDisposable
             {
                 bitmap.Save(filePath, ImageFormat.Jpeg);
             }
+
+            string metadataPath = filePath + ".meta.json";
+            var captureInfo = new
+            {
+                VirtualScreenLeft = virtualBounds.Left,
+                VirtualScreenTop = virtualBounds.Top,
+                Width = bitmap.Width,
+                Height = bitmap.Height,
+                Monitors = monitorMetadata.Select(m => new
+                {
+                    Left = m.Left,
+                    Top = m.Top,
+                    Width = m.Width,
+                    Height = m.Height,
+                    X = m.X,
+                    Y = m.Y
+                }).ToList()
+            };
+
+            File.WriteAllText(metadataPath, JsonSerializer.Serialize(captureInfo, new JsonSerializerOptions
+            {
+                WriteIndented = true
+            }));
         });
 
         CaptureSaved?.Invoke(filePath, now);

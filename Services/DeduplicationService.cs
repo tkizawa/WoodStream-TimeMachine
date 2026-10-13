@@ -155,7 +155,15 @@ public class DeduplicationService : IDisposable
                     try
                     {
                         string fullPath = file.FullName;
-                        File.Delete(fullPath);
+                        string metadataPath = fullPath + ".meta.json";
+                        if (File.Exists(fullPath))
+                        {
+                            File.Delete(fullPath);
+                        }
+                        if (File.Exists(metadataPath))
+                        {
+                            File.Delete(metadataPath);
+                        }
                         deletedCount++;
                         _ocrDatabaseService?.DeleteRecordAsync(fullPath);
                     }
