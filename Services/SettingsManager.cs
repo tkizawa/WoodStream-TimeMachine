@@ -64,10 +64,18 @@ public class SettingsManager
                     {
                         loaded.CaptureIntervalSeconds = 3;
                     }
-                    if (loaded.MaxStorageSizeMB <= 0)
+                    int normalizedLimitGB = loaded.MaxStorageSizeMB;
+                    if (normalizedLimitGB <= 0)
                     {
-                        loaded.MaxStorageSizeMB = 150;
+                        normalizedLimitGB = 25;
                     }
+                    else if (normalizedLimitGB > 150)
+                    {
+                        // 既存のMB単位設定をGB単位へ安全に変換する
+                        normalizedLimitGB = Math.Max(10, normalizedLimitGB / 1024);
+                    }
+
+                    loaded.MaxStorageSizeMB = normalizedLimitGB;
                     Current = loaded;
                     return Current;
                 }
@@ -82,6 +90,7 @@ public class SettingsManager
         Current = new AppSettings
         {
             StorageFolderPath = GetDefaultStoragePath(),
+            MaxStorageSizeMB = 25,
             IsFirstRun = true
         };
         return Current;

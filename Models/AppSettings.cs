@@ -16,9 +16,9 @@ public class AppSettings
     public int CaptureIntervalSeconds { get; set; } = 3;
 
     /// <summary>
-    /// 最大保存容量制限（MB） デフォルト150MB（1時間ごとに判定し、超過時は古い画像から削除）
+    /// 最大保存容量制限（GB） デフォルト25GB（1時間ごとに判定し、超過時は古い画像から削除）
     /// </summary>
-    public int MaxStorageSizeMB { get; set; } = 150;
+    public int MaxStorageSizeMB { get; set; } = 25;
 
     /// <summary>
     /// Windows起動時に自動起動するかどうか

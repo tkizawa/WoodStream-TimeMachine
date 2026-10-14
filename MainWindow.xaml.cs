@@ -110,6 +110,51 @@ public partial class MainWindow : Window
         SearchPanelTitleTextBlock.Text = Strings.SearchPanelTitle;
         CloseSearchPanelButton.ToolTip = Strings.CloseSearchPanelTooltip;
         NoResultsTextBlock.Text = Strings.NoSearchResults;
+
+        UpdateStorageUsageDisplay();
+    }
+
+    private void UpdateStorageUsageDisplay()
+    {
+        string folder = _settingsManager.Current.StorageFolderPath;
+        bool isJapanese = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "ja";
+
+        if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
+        {
+            StorageUsageTextBlock.Text = isJapanese ? "保存容量: --" : "Storage: --";
+            StorageUsageBar.Value = 0;
+            StorageUsageBar.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(56, 189, 248));
+            return;
+        }
+
+        int maxStorageGB = Math.Max(10, _settingsManager.Current.MaxStorageSizeMB);
+        long maxBytes = (long)maxStorageGB * 1024L * 1024L * 1024L;
+
+        long usedBytes = Directory.EnumerateFiles(folder, "*.*", SearchOption.TopDirectoryOnly)
+            .Where(path =>
+                path.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                path.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) ||
+                path.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
+                path.EndsWith(".meta.json", StringComparison.OrdinalIgnoreCase))
+            .Sum(path => new FileInfo(path).Length);
+
+        double usedGB = usedBytes / (1024.0 * 1024.0 * 1024.0);
+        double usageRatio = Math.Clamp(usedBytes / (double)maxBytes, 0.0, 1.0);
+        double usagePercent = usageRatio * 100.0;
+
+        StorageUsageBar.Maximum = 100;
+        StorageUsageBar.Value = usagePercent;
+
+        var label = isJapanese ? "保存容量" : "Storage";
+        StorageUsageTextBlock.Text = string.Format(CultureInfo.InvariantCulture, "{0} {1:0.##} / {2} GB", label, usedGB, maxStorageGB);
+
+        System.Windows.Media.Color barColor = usagePercent >= 90
+            ? System.Windows.Media.Color.FromRgb(239, 68, 68)
+            : usagePercent >= 70
+                ? System.Windows.Media.Color.FromRgb(245, 158, 11)
+                : System.Windows.Media.Color.FromRgb(34, 197, 94);
+
+        StorageUsageBar.Foreground = new System.Windows.Media.SolidColorBrush(barColor);
     }
 
     /// <summary>
@@ -202,6 +247,8 @@ public partial class MainWindow : Window
             _items.Sort((a, b) => a.Timestamp.CompareTo(b.Timestamp));
         }
 
+        UpdateStorageUsageDisplay();
+
         if (_items.Count == 0)
         {
             TimelineSlider.Minimum = 0;
@@ -260,6 +307,7 @@ public partial class MainWindow : Window
             _items.Add(new CaptureItem(filePath, timestamp));
             TimelineSlider.Maximum = _items.Count - 1;
             LatestTimeTextBlock.Text = timestamp.ToString("yyyy/MM/dd HH:mm:ss");
+            UpdateStorageUsageDisplay();
 
             // 最新を見ていた場合は自動で最新に追従
             if (wasAtLatest)

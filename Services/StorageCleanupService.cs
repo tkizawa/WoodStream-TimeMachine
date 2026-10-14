@@ -112,13 +112,13 @@ public class StorageCleanupService : IDisposable
             return 0;
         }
 
-        int maxStorageMB = _settingsManager.Current.MaxStorageSizeMB;
-        if (maxStorageMB <= 0)
+        int maxStorageGB = _settingsManager.Current.MaxStorageSizeMB;
+        if (maxStorageGB <= 0)
         {
             return 0;
         }
 
-        long maxBytes = (long)maxStorageMB * 1024 * 1024;
+        long maxBytes = (long)maxStorageGB * 1024L * 1024L * 1024L;
 
         return await Task.Run(() =>
         {
@@ -178,7 +178,7 @@ public class StorageCleanupService : IDisposable
 
                 if (deletedCount > 0)
                 {
-                    Debug.WriteLine($"容量制限（{maxStorageMB}MB）超過を検知: 古いキャプチャ {deletedCount} 枚を削除し、{bytesFreed / 1024 / 1024}MB を解放しました。");
+                    Debug.WriteLine($"容量制限（{maxStorageGB}GB）超過を検知: 古いキャプチャ {deletedCount} 枚を削除し、{bytesFreed / 1024.0 / 1024.0 / 1024.0:F2}GB を解放しました。");
                     CleanupCompleted?.Invoke(deletedCount);
                 }
 

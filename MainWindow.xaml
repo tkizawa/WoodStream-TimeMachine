@@ -160,6 +160,35 @@
 
                 <!-- ツールバーボタン & 検索バー -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Width="210"
+                            Margin="0,0,12,0"
+                            Background="#1E293B"
+                            BorderBrush="#334155"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="10,6">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock x:Name="StorageUsageTextBlock"
+                                       Text="保存容量 0 / 25 GB"
+                                       FontSize="11"
+                                       Foreground="#E2E8F0"
+                                       FontWeight="SemiBold"/>
+                            <ProgressBar x:Name="StorageUsageBar"
+                                         Grid.Row="1"
+                                         Height="8"
+                                         Margin="0,6,0,0"
+                                         Minimum="0"
+                                         Maximum="100"
+                                         Value="0"
+                                         Background="#0F172A"
+                                         Foreground="#22C55E"/>
+                        </Grid>
+                    </Border>
+
                     <!-- 検索バー -->
                     <Border x:Name="SearchBarBorder"
                             Width="240"

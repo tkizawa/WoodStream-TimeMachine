@@ -30,7 +30,7 @@ public static class Strings
     public static string BrowseButton => IsJapanese ? "参照..." : "Browse...";
     public static string CaptureIntervalLabel => IsJapanese ? "記録間隔 (秒):" : "Capture Interval (sec):";
     public static string SecondsUnit => IsJapanese ? "秒" : "sec";
-    public static string StorageLimitLabel => IsJapanese ? "保存容量上限 (MB):" : "Storage Limit (MB):";
+    public static string StorageLimitLabel => IsJapanese ? "保存容量上限 (GB):" : "Storage Limit (GB):";
     public static string StorageLimitDescription => IsJapanese 
         ? "※1時間ごとに容量を判定し、上限超過時は古い画像から自動削除します。" 
         : "* Checked hourly; oldest captures are deleted when exceeded.";

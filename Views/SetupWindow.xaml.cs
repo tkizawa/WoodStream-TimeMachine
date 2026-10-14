@@ -54,7 +54,7 @@ public partial class SetupWindow : Window
     }
 
     /// <summary>
-    /// 記録間隔（1〜60秒）および保存容量上限（10〜1000MB）の選択肢を生成
+    /// 記録間隔（1〜60秒）および保存容量上限（10〜150GB）の選択肢を生成
     /// </summary>
     private void PopulateDropdownOptions()
     {
@@ -66,11 +66,11 @@ public partial class SetupWindow : Window
             CaptureIntervalComboBox.Items.Add(new ComboBoxOption(i, $"{i} {secUnit}"));
         }
 
-        // 2. 容量制限ドロップダウン（10MB〜1000MB、10MB刻み）
+        // 2. 容量制限ドロップダウン（10GB〜150GB、10GB刻み）
         StorageLimitComboBox.Items.Clear();
-        for (int i = 10; i <= 1000; i += 10)
+        for (int i = 10; i <= 150; i += 10)
         {
-            StorageLimitComboBox.Items.Add(new ComboBoxOption(i, $"{i} MB"));
+            StorageLimitComboBox.Items.Add(new ComboBoxOption(i, $"{i} GB"));
         }
     }
 
@@ -103,8 +103,8 @@ public partial class SetupWindow : Window
             CaptureIntervalComboBox.SelectedItem = customOption;
         }
 
-        // 保存容量上限の復元（デフォルト150MB、10〜1000MB）
-        int currentLimit = _settingsManager.Current.MaxStorageSizeMB <= 0 ? 150 : _settingsManager.Current.MaxStorageSizeMB;
+        // 保存容量上限の復元（デフォルト25GB、10〜150GB）
+        int currentLimit = _settingsManager.Current.MaxStorageSizeMB <= 0 ? 25 : _settingsManager.Current.MaxStorageSizeMB;
         var limitOption = StorageLimitComboBox.Items
             .OfType<ComboBoxOption>()
             .FirstOrDefault(opt => opt.Value == currentLimit);
@@ -115,7 +115,7 @@ public partial class SetupWindow : Window
         }
         else
         {
-            var customOption = new ComboBoxOption(currentLimit, $"{currentLimit} MB");
+            var customOption = new ComboBoxOption(currentLimit, $"{currentLimit} GB");
             StorageLimitComboBox.Items.Add(customOption);
             StorageLimitComboBox.SelectedItem = customOption;
         }
@@ -159,7 +159,7 @@ public partial class SetupWindow : Window
 
         // ドロップダウンからの選択値取得
         int interval = (CaptureIntervalComboBox.SelectedItem as ComboBoxOption)?.Value ?? 3;
-        int limitMB = (StorageLimitComboBox.SelectedItem as ComboBoxOption)?.Value ?? 150;
+        int limitGB = (StorageLimitComboBox.SelectedItem as ComboBoxOption)?.Value ?? 25;
 
         try
         {
@@ -182,7 +182,7 @@ public partial class SetupWindow : Window
         // 設定の更新と保存
         _settingsManager.Current.StorageFolderPath = targetPath;
         _settingsManager.Current.CaptureIntervalSeconds = interval;
-        _settingsManager.Current.MaxStorageSizeMB = limitMB;
+        _settingsManager.Current.MaxStorageSizeMB = limitGB;
         _settingsManager.Current.StartWithWindows = startWithWindows;
         _settingsManager.Current.EnableOcr = EnableOcrCheckBox.IsChecked == true;
         _settingsManager.Current.IsFirstRun = false;
