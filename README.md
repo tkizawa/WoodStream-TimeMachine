@@ -122,7 +122,7 @@ WoodStream-TimeMachine/
 
 ### ビルド
 ```powershell
-dotnet build -c Release
+dotnet build -c Release -r win-x64
 ```
 
 ### 実行
@@ -131,3 +131,19 @@ dotnet run
 ```
 
 起動すると、初回時は保存先フォルダの確認ダイアログが表示されます。「保存して開始」を押すとタスクトレイに格納され、自動キャプチャが開始されます。
+
+### スタンドアロンインストーラー（x64 / Arm64）
+
+.NET 10 SDK と Inno Setup 6（6.3 以降）が必要です。次のコマンドでランタイム同梱のアプリを発行し、アーキテクチャ別の EXE インストーラーを生成します。`$iscc` は実際のインストール先に合わせて変更してください。
+
+```powershell
+$iscc = "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe"
+foreach ($arch in @("x64", "arm64")) {
+    dotnet publish .\WoodStreamTimeMachine.csproj -c Release -r "win-$arch" --self-contained true -p:PublishSingleFile=true -o ".\publish\$arch"
+    if ($LASTEXITCODE -ne 0) { throw "Publish failed: $arch" }
+    & $iscc "/DMyAppArch=$arch" .\installer.iss
+    if ($LASTEXITCODE -ne 0) { throw "Installer build failed: $arch" }
+}
+```
+
+出力先は `Installer\WoodStreamTimeMachine-Setup-<バージョン>-x64.exe` および `Installer\WoodStreamTimeMachine-Setup-<バージョン>-arm64.exe` です。バージョンは発行したアプリのファイルバージョンから取得します。利用先での .NET ランタイムの別途インストールは不要です。Arm64 版は Arm64 Windows、x64 版は x64 アプリを実行できる Windows が対象です。

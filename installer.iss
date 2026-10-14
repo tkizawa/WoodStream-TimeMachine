@@ -1,23 +1,36 @@
 #define MyAppName "WoodStream TimeMachine"
-#define MyAppVersion "1.0.0.0"
 #define MyAppPublisher "WoodStream"
 #define MyAppExeName "WoodStreamTimeMachine.exe"
+#ifndef MyAppArch
+  #define MyAppArch "x64"
+#endif
+#if MyAppArch == "x64"
+  #define MyAppAllowedArchitectures "x64compatible"
+#elif MyAppArch == "arm64"
+  #define MyAppAllowedArchitectures "arm64"
+#else
+  #error Unsupported MyAppArch. Use x64 or arm64.
+#endif
+#define MyAppPublishDir "publish\" + MyAppArch
+#define MyAppVersion GetVersionNumbersString(MyAppPublishDir + "\" + MyAppExeName)
 
 [Setup]
 AppId={{E1A6392D-C3B2-4E52-9A4B-9B28442813DC}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
+VersionInfoVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputDir=Installer
-OutputBaseFilename=WoodStreamTimeMachine-Setup-{#MyAppVersion}
+OutputBaseFilename=WoodStreamTimeMachine-Setup-{#MyAppVersion}-{#MyAppArch}
 SetupIconFile=Assets\app.ico
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
-ArchitecturesInstallIn64BitMode=x64compatible
+ArchitecturesAllowed={#MyAppAllowedArchitectures}
+ArchitecturesInstallIn64BitMode={#MyAppAllowedArchitectures}
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 
@@ -29,7 +42,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "publish\x64\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#MyAppPublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "Assets\*"; DestDir: "{app}\Assets"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
