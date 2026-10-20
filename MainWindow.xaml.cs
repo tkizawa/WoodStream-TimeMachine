@@ -92,6 +92,13 @@ public partial class MainWindow : Window
     {
         Title = Strings.ViewerTitle;
         HeaderTitleTextBlock.Text = Strings.AppTitle;
+
+        // ファイルバージョン（csproj の FileVersion）を「Version a.b.c.d」形式で表示
+        var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+        string? fileVersion = System.Reflection.CustomAttributeExtensions
+            .GetCustomAttribute<System.Reflection.AssemblyFileVersionAttribute>(assembly)?.Version;
+        string versionText = fileVersion ?? assembly.GetName().Version?.ToString() ?? "1.0.0.0";
+        VersionTextBlock.Text = $"Version {versionText}";
         RefreshButtonText.Text = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "ja" ? "更新" : "Refresh";
         OptimizeButtonText.Text = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "ja" ? "重複間引き" : "Clean Up";
         EmptyStateTextBlock.Text = Strings.NoCapturesFound;
@@ -616,17 +623,61 @@ public partial class MainWindow : Window
     private async void OptimizeButton_Click(object sender, RoutedEventArgs e)
     {
         OptimizeButton.IsEnabled = false;
+        DeduplicationResult? result = null;
+        Exception? error = null;
+
+        // 処理中はアプリ全体のマウスカーソルを砂時計（待機）に変更
+        Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
         try
         {
-            ShowStatusToast("最適化を実行中...");
-            int deleted = await _deduplicationService.RunDeduplicationAsync();
-            ShowStatusToast(string.Format(Strings.OptimizationDoneMessage, deleted));
+            result = await _deduplicationService.RunDeduplicationWithStatsAsync();
             LoadCaptures(preserveIndex: false);
+        }
+        catch (Exception ex)
+        {
+            error = ex;
         }
         finally
         {
+            // メッセージボックス表示前にカーソルを元に戻す
+            Mouse.OverrideCursor = null;
             OptimizeButton.IsEnabled = true;
         }
+
+        if (error != null)
+        {
+            System.Windows.MessageBox.Show(this,
+                string.Format(Strings.OptimizationFailedMessage, error.Message),
+                Strings.OptimizationResultTitle,
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            return;
+        }
+
+        // 削除枚数と削減容量を表示
+        System.Windows.MessageBox.Show(this,
+            string.Format(Strings.OptimizationResultMessage, result!.DeletedCount, FormatBytes(result.FreedBytes)),
+            Strings.OptimizationResultTitle,
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+    }
+
+    /// <summary>
+    /// バイト数を B / KB / MB / GB の読みやすい単位に整形
+    /// </summary>
+    private static string FormatBytes(long bytes)
+    {
+        string[] units = { "B", "KB", "MB", "GB", "TB" };
+        double size = bytes;
+        int unitIndex = 0;
+        while (size >= 1024 && unitIndex < units.Length - 1)
+        {
+            size /= 1024;
+            unitIndex++;
+        }
+        return unitIndex == 0
+            ? $"{bytes:N0} {units[0]}"
+            : string.Format(CultureInfo.CurrentCulture, "{0:0.##} {1}", size, units[unitIndex]);
     }
 
     private async void ShowStatusToast(string message)

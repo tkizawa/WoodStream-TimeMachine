@@ -6,6 +6,13 @@ using System.IO;
 namespace WoodStreamTimeMachine.Services;
 
 /// <summary>
+/// 重複間引き処理の結果（削除枚数と削減できた容量）
+/// </summary>
+/// <param name="DeletedCount">削除した画像枚数</param>
+/// <param name="FreedBytes">削除により解放された容量（画像＋メタデータ、バイト単位）</param>
+public record DeduplicationResult(int DeletedCount, long FreedBytes);
+
+/// <summary>
 /// バックグラウンドで定期的に過去のキャプチャ画像を比較し、重複・微小差分の画像を間引く最適化サービス
 /// </summary>
 public class DeduplicationService : IDisposable
@@ -99,10 +106,22 @@ public class DeduplicationService : IDisposable
     /// <returns>削除された画像数</returns>
     public async Task<int> RunDeduplicationAsync(TimeSpan? targetPeriod = null, CancellationToken cancellationToken = default)
     {
+        var result = await RunDeduplicationWithStatsAsync(targetPeriod, cancellationToken);
+        return result.DeletedCount;
+    }
+
+    /// <summary>
+    /// 指定期間のキャプチャ画像から重複・微細差分画像を削除し、削除枚数と削減容量を返します
+    /// </summary>
+    /// <param name="targetPeriod">対象期間（nullの場合は過去全期間）</param>
+    /// <param name="cancellationToken">キャンセルトークン</param>
+    /// <returns>削除枚数と削減容量</returns>
+    public async Task<DeduplicationResult> RunDeduplicationWithStatsAsync(TimeSpan? targetPeriod = null, CancellationToken cancellationToken = default)
+    {
         string folder = _settingsManager.Current.StorageFolderPath;
         if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
         {
-            return 0;
+            return new DeduplicationResult(0, 0);
         }
 
         return await Task.Run(() =>
@@ -120,10 +139,11 @@ public class DeduplicationService : IDisposable
 
             if (files.Count < 2)
             {
-                return 0;
+                return new DeduplicationResult(0, 0);
             }
 
-            int deletedCount = 0;
+            // 間引き対象（削除する画像）のフルパス
+            var duplicates = new List<string>();
             byte[]? baseFingerprint = null;
 
             for (int i = 0; i < files.Count; i++)
@@ -148,29 +168,11 @@ public class DeduplicationService : IDisposable
                 // 2つの画像の平均ピクセル差分を計算
                 double difference = CalculateDifferenceRatio(baseFingerprint, currentFingerprint);
 
-                // 差分が極めて少ない（画面に有意な変化がない）場合は削除
+                // 差分が極めて少ない（画面に有意な変化がない）場合は間引き対象として収集
                 // 0.02 (2%未満の差分: マウスポインタや時計のわずかな更新のみ) を重複とみなす
                 if (difference < 0.025)
                 {
-                    try
-                    {
-                        string fullPath = file.FullName;
-                        string metadataPath = fullPath + ".meta.json";
-                        if (File.Exists(fullPath))
-                        {
-                            File.Delete(fullPath);
-                        }
-                        if (File.Exists(metadataPath))
-                        {
-                            File.Delete(metadataPath);
-                        }
-                        deletedCount++;
-                        _ocrDatabaseService?.DeleteRecordAsync(fullPath);
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"ファイル削除スキップ ({file.Name}): {ex.Message}");
-                    }
+                    duplicates.Add(file.FullName);
                 }
                 else
                 {
@@ -179,9 +181,70 @@ public class DeduplicationService : IDisposable
                 }
             }
 
+            int deletedCount = 0;
+            long freedBytes = 0;
+            if (duplicates.Count > 0)
+            {
+                (deletedCount, freedBytes) = DeleteDuplicates(duplicates);
+            }
+
             OptimizationCompleted?.Invoke(deletedCount);
-            return deletedCount;
+            return new DeduplicationResult(deletedCount, freedBytes);
         }, cancellationToken);
+    }
+
+    /// <summary>
+    /// 間引き対象の画像とメタデータを削除し、削除件数と削減容量を返します。
+    /// 削除できなかったファイル（使用中等）はスキップします。
+    /// </summary>
+    private (int DeletedCount, long FreedBytes) DeleteDuplicates(List<string> imagePaths)
+    {
+        int deletedCount = 0;
+        long freedBytes = 0;
+
+        foreach (var path in imagePaths)
+        {
+            try
+            {
+                string metadataPath = path + ".meta.json";
+                // 削除前にファイルサイズを取得し、削減容量として加算
+                long size = GetFileSize(path) + GetFileSize(metadataPath);
+
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+                if (File.Exists(metadataPath))
+                {
+                    File.Delete(metadataPath);
+                }
+
+                deletedCount++;
+                freedBytes += size;
+                _ocrDatabaseService?.DeleteRecordAsync(path);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"ファイル削除スキップ ({Path.GetFileName(path)}): {ex.Message}");
+            }
+        }
+
+        return (deletedCount, freedBytes);
+    }
+
+    /// <summary>
+    /// ファイルサイズを取得（存在しない場合は 0）
+    /// </summary>
+    private static long GetFileSize(string path)
+    {
+        try
+        {
+            return File.Exists(path) ? new FileInfo(path).Length : 0;
+        }
+        catch
+        {
+            return 0;
+        }
     }
 
     /// <summary>

@@ -134,6 +134,13 @@
                                FontSize="16"
                                FontWeight="Bold"
                                Foreground="#F8FAFC"/>
+                    <!-- アプリバージョン表示（コードビハインドでアセンブリ情報から設定） -->
+                    <TextBlock x:Name="VersionTextBlock"
+                               Text="Version 1.0.0.0"
+                               FontSize="11"
+                               Foreground="#94A3B8"
+                               Margin="10,3,0,0"
+                               VerticalAlignment="Center"/>
                 </StackPanel>
 
                 <!-- ビュアー表示中のキャプチャ一時停止インジケーター -->

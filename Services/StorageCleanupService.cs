@@ -143,31 +143,41 @@ public class StorageCleanupService : IDisposable
                 int deletedCount = 0;
                 long bytesFreed = 0;
 
-                // 上限以下に収まるまで、古い画像ファイルから順に削除
+                // 上限以下に収まるまで、古い画像ファイルから順に移動対象として選定
+                var targets = new List<FileInfo>();
+                long remainingBytes = totalBytes;
                 foreach (var file in files)
                 {
                     if (cancellationToken.IsCancellationRequested) break;
-                    if (totalBytes <= maxBytes) break;
+                    if (remainingBytes <= maxBytes) break;
+                    targets.Add(file);
+                    remainingBytes -= file.Length;
+                }
 
+                if (targets.Count == 0)
+                {
+                    return 0;
+                }
+
+                // 古い順に画像とメタデータを削除（削除できなかったファイルはスキップ）
+                foreach (var file in targets)
+                {
                     try
                     {
-                        long fileLength = file.Length;
                         string fullName = file.FullName;
                         string metadataPath = fullName + ".meta.json";
 
                         if (File.Exists(fullName))
                         {
-                            file.Delete();
+                            File.Delete(fullName);
                         }
                         if (File.Exists(metadataPath))
                         {
                             File.Delete(metadataPath);
                         }
 
-                        totalBytes -= fileLength;
-                        bytesFreed += fileLength;
+                        bytesFreed += file.Length;
                         deletedCount++;
-
                         _ocrDatabaseService?.DeleteRecordAsync(fullName);
                     }
                     catch (Exception ex)

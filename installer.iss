@@ -1,5 +1,5 @@
 #define MyAppName "WoodStream TimeMachine"
-#define MyAppVersion "1.0.0.0"
+#define MyAppVersion "1.0.1.0"
 #define MyAppPublisher "WoodStream"
 #define MyAppExeName "WoodStreamTimeMachine.exe"
 

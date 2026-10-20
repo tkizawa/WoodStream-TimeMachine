@@ -53,6 +53,11 @@ public static class Strings
     public static string RefreshButtonTooltip => IsJapanese ? "最新の画像を再読込 (F5)" : "Reload Images (F5)";
     public static string RunDeduplicationButton => IsJapanese ? "今すぐ最適化 (重複間引き)" : "Optimize Now (Deduplicate)";
     public static string OptimizationDoneMessage => IsJapanese ? "{0} 枚の重複・微小差分画像を間引きました。" : "Cleaned up {0} duplicate / nearly identical captures.";
+    public static string OptimizationResultTitle => IsJapanese ? "重複間引き" : "Clean Up";
+    public static string OptimizationResultMessage => IsJapanese
+        ? "重複間引きが完了しました。\n\n削除枚数: {0} 枚\n削減容量: {1}"
+        : "Clean up completed.\n\nDeleted captures: {0}\nSpace freed: {1}";
+    public static string OptimizationFailedMessage => IsJapanese ? "重複間引き中にエラーが発生しました。\n\n{0}" : "An error occurred during clean up.\n\n{0}";
     public static string CapturePausedBadge => IsJapanese ? "ビュアー表示中（キャプチャ停止中）" : "Recording paused while viewer is open";
     public static string SearchPlaceholder => IsJapanese ? "画面内の文字を検索 (Enter)..." : "Search screen text (Enter)...";
     public static string SearchButtonText => IsJapanese ? "検索" : "Search";
